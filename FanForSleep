@@ -14,10 +14,10 @@
  *
  */
 definition(
-    name: "Summer Fan for Sleeping",
+    name: "Fan for sleeping when it's hot",
     namespace: "theyateser",
     author: "Matt Yates",
-    description: "Turn on fans when the temperature is above X and its between Yp and Za and youre home.",
+    description: "Turn on fans when the temperature is above X and its between Yp and Za and youre not Away.",
     category: "My Apps",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -25,13 +25,22 @@ definition(
 
 
 preferences {
- 	section("Turn on when temperature") {
-        input "tempSensor", "capability.temperatureMeasurement", required: true
+ 	section("Which Devices?") {
+        input "tempSensor", "capability.temperatureMeasurement", required: true, title: "Temperature"
+    	input "thefan", "capability.switchLevel", required: true, title: "Fan"
     } 
-   section("Turn on this fan") {
-        input "thefan", "capability.switchLevel", required: true
-    } 
-// In the future, capture temp degree desired, fan speed desied, above or below degree point, start and end times for function  
+    section("What set points?") {
+        // name is "temperature1", type is "number"
+        input "tempPoint", "number", title: "Temperature above... degrees (F)"
+    	input "fanSetSpeed", "number", title: "Fan on speed (1-100)"
+    }
+    section("Turn on between what times?") {
+        input "fromTime", "time", title: "From", required: true
+        input "toTime", "time", title: "To", required: true
+    }
+// In the future: add above or below degree point; allow user to select mode(s) for activity
+//Idea: monitor mode and if come from away to home, run logic to see if need to turn on
+//Idea: instead of turning off at end of time window, look for motion/switch activity after some time and cut off fan "when things start to happen"
 }
 
 def installed() {
@@ -47,21 +56,47 @@ def updated() {
 
 def initialize() {
 	subscribe(tempSensor, "temperature", tempHandler)
+    schedule(toTime, timesUpHandler)
 }
 
-// this section does something with the temperature
-//add: check time, check fan current state, check mode, then act.
-//add: monitor mode and if come home, run logic to see if need to turn on
+// This section does something when the temperature changes
 def tempHandler(evt) {
-	def CurrentTemp = tempSensor.temperatureState
+	log.debug "tempHandler called: $evt"
+    // Define some variables
+    def CurrentTemp = tempSensor.temperatureState // current temp
     log.debug "temperature value as an integer: ${CurrentTemp.integerValue}"
-    log.debug "tempHandler called: $evt"
- 	if (CurrentTemp.integerValue > 74) {
-        log.debug "fan turned on!"
-   		 thefan.setLevel(61)
- 		} 
+    def CurrentFanLevel = thefan.currentLevel //Current Fan Speed
+    log.debug "the current level of the fan is: $CurrentFanLevel"
+    def between = timeOfDayIsBetween(fromTime, toTime, new Date(), location.timeZone) // Are we in the selected time window?
+    def currMode = location.mode // "Home", "Away", etc.
+    log.debug "current mode is $currMode"
+    //Start running logic
+    if (between && currMode != "Away") 
+    			{ // Test if in current time is between selected and not Away mode
+                log.debug "I'm home and the time is right"
+                if (CurrentTemp.integerValue > tempPoint) 
+                	{ //Temp is above set point
+                    if (CurrentFanLevel != fanSetSpeed) {
+                        log.debug "I'm hot. Fan turned on!"
+                        thefan.setLevel(fanSetSpeed)}
+                    else {log.debug "I'm hot, but the fan is already at speed."}
+                    } 
+                else {
+                    if (CurrentFanLevel == 0) {
+                    	log.debug "The temp is at or below set point and fan is already off."}
+                    else {
+                        log.debug "I'm cold. Fan turned off!"
+                        thefan.setLevel(0)
+                        }
+                }
+     }
     else {
-    	log.debug "switch turned off!"
-    	thefan.setLevel(0)
-		}
+    	log.debug "It's outside the seleced time range or mode is away"
+    	}
 }
+// When the end of the time window comes, turn off the fan
+def timesUpHandler(evt) { 
+	log.debug "tempHandler called: $evt"
+    log.debug "Times up. Fan turned off!"
+    thefan.setLevel(0)
+    }
