@@ -14,7 +14,7 @@
  *
  */
 definition(
-    name: "Fan for sleeping when it's hot",
+    name: "Fan for sleeping",
     namespace: "theyateser",
     author: "Matt Yates",
     description: "Turn on fans when the temperature is above X and its between Yp and Za and youre not Away.",
@@ -56,33 +56,27 @@ def updated() {
 
 def initialize() {
 	subscribe(tempSensor, "temperature", tempHandler)
-    schedule(toTime, timesUpHandler)
+    schedule(toTime, timesEndHandler)
+    schedule(fromTime, timesStartHandler)
 }
 
-// This section does something when the temperature changes
+// Section: Do something when the temperature changes
 def tempHandler(evt) {
 	log.debug "tempHandler called: $evt"
-    // Define some variables
-    def CurrentTemp = tempSensor.temperatureState // current temp
-    log.debug "temperature value as an integer: ${CurrentTemp.integerValue}"
-    def CurrentFanLevel = thefan.currentLevel //Current Fan Speed
-    log.debug "the current level of the fan is: $CurrentFanLevel"
     def between = timeOfDayIsBetween(fromTime, toTime, new Date(), location.timeZone) // Are we in the selected time window?
-    def currMode = location.mode // "Home", "Away", etc.
-    log.debug "current mode is $currMode"
     //Start running logic
-    if (between && currMode != "Away") 
+    if (between && location.mode != "Away") 
     			{ // Test if in current time is between selected and not Away mode
                 log.debug "I'm home and the time is right"
-                if (CurrentTemp.integerValue > tempPoint) 
+                if (tempSensor.temperatureState.integerValue > tempPoint) 
                 	{ //Temp is above set point
-                    if (CurrentFanLevel != fanSetSpeed) {
+                    if (thefan.currentLevel != fanSetSpeed) {
                         log.debug "I'm hot. Fan turned on!"
                         thefan.setLevel(fanSetSpeed)}
                     else {log.debug "I'm hot, but the fan is already at speed."}
                     } 
                 else {
-                    if (CurrentFanLevel == 0) {
+                    if (thefan.currentLevel == 0) {
                     	log.debug "The temp is at or below set point and fan is already off."}
                     else {
                         log.debug "I'm cold. Fan turned off!"
@@ -94,9 +88,28 @@ def tempHandler(evt) {
     	log.debug "It's outside the seleced time range or mode is away"
     	}
 }
-// When the end of the time window comes, turn off the fan
-def timesUpHandler(evt) { 
+
+// Section: When the Start of the time window comes, Check temperature and mode and start fan if needed
+def timesStartHandler(evt) { 
 	log.debug "tempHandler called: $evt"
+    log.debug "It's time. I'm on duty."
+    if (location.mode != "Away" 
+    	&& tempSensor.temperatureState.integerValue > tempPoint
+        )
+    	{log.debug "It's time, and it's hot. Turning fan on!"
+        thefan.setLevel(fanSetSpeed)
+        }
+    else { if (thefan.currentLevel > 0) 
+    			{log.debug "It's time, but it's not hot or I'm Away. Turning fan off!"
+                thefan.setLevel(0)
+                }
+    		else {log.debug "It's time, but it's not hot and the fan is already off."}
+    	}
+    }
+
+// Section: When the end of the time window comes, turn off the fan
+def timesEndHandler(evt) { 
+	log.debug "timesEndHandler called: $evt"
     log.debug "Times up. Fan turned off!"
     thefan.setLevel(0)
     }
