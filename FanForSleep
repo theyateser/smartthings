@@ -1,0 +1,67 @@
+/**
+ *  Fan for Sleeping
+ *
+ *  Copyright 2017 Matt Yates
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ */
+definition(
+    name: "Summer Fan for Sleeping",
+    namespace: "theyateser",
+    author: "Matt Yates",
+    description: "Turn on fans when the temperature is above X and its between Yp and Za and youre home.",
+    category: "My Apps",
+    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
+    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+
+
+preferences {
+ 	section("Turn on when temperature") {
+        input "tempSensor", "capability.temperatureMeasurement", required: true
+    } 
+   section("Turn on this fan") {
+        input "thefan", "capability.switchLevel", required: true
+    } 
+// In the future, capture temp degree desired, fan speed desied, above or below degree point, start and end times for function  
+}
+
+def installed() {
+    log.debug "Installed with settings: ${settings}"
+    initialize()
+}
+
+def updated() {
+    log.debug "Updated with settings: ${settings}"
+    unsubscribe()
+    initialize()
+}
+
+def initialize() {
+	subscribe(tempSensor, "temperature", tempHandler)
+}
+
+// this section does something with the temperature
+//add: check time, check fan current state, check mode, then act.
+//add: monitor mode and if come home, run logic to see if need to turn on
+def tempHandler(evt) {
+	def CurrentTemp = tempSensor.temperatureState
+    log.debug "temperature value as an integer: ${CurrentTemp.integerValue}"
+    log.debug "tempHandler called: $evt"
+ 	if (CurrentTemp.integerValue > 74) {
+        log.debug "fan turned on!"
+   		 thefan.setLevel(61)
+ 		} 
+    else {
+    	log.debug "switch turned off!"
+    	thefan.setLevel(0)
+		}
+}
