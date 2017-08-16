@@ -1,0 +1,71 @@
+/**
+ *  On/Off Timer
+ *
+ *  Copyright 2017 Matt Yates
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ */
+definition(
+    name: "On/Off Switch Timer",
+    namespace: "theyateser",
+    author: "Matt Yates",
+    description: "Select time to turn switches on/off",
+    category: "Convenience",
+    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
+    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+
+preferences {
+ 	section("Which Device?") {
+    	//input "theDimmer", "capability.switchLevel", required: false, title: "Dimmer"
+        input "theSwitch", "capability.switch", required: true, title: "Switch"
+        //input "theMotion", "capability.motionSensor", required: true, title: "Motion Detector"
+    } 
+    section("Turn on between what times?") {
+        input "fromTime", "time", title: "From", required: true
+        input "toTime", "time", title: "To", required: true
+    }
+// In the future: add sunset and rise; random 30 minute before or after
+//Idea: monitor mode and if come from away to home, run logic to see if need to turn on
+//Idea: instead of turning off at end of time window, look for motion/switch activity after some time and cut off "when things start to happen"
+}
+
+def installed() {
+    log.debug "Installed with settings: ${settings}"
+    initialize()
+}
+
+def updated() {
+    log.debug "Updated with settings: ${settings}"
+    unsubscribe()
+    initialize()
+}
+
+def initialize() {
+    schedule(toTime, timesEndHandler)
+    schedule(fromTime, timesStartHandler)
+}
+
+// Section: When the Start of the time window comes, turn on the switch
+def timesStartHandler(evt) { 
+	log.debug "timesStartHandler called: $evt"
+    log.debug "$theSwitch.switchState"
+    log.debug "It's time. I'm on duty."
+	theSwitch.on()
+}
+
+// Section: When the end of the time window comes, turn off the switch
+def timesEndHandler(evt) { 
+	log.debug "timesEndHandler called: $evt"
+    log.debug "$theSwitch.switchState"
+    log.debug "Times up. Switch turned off!"
+    theSwitch.off()
+    }
